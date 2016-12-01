@@ -1,0 +1,3 @@
+package lltr;
+
+network Network {}

@@ -1,0 +1,4 @@
+#!/bin/sh
+cd `dirname $0`
+../src/lltr -n .:../src $*
+# for shared lib, use: opp_run -l ../src/lltr -n .:../src $*
