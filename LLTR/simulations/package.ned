@@ -8,10 +8,7 @@ import inet.node.ethernet.Eth100M;
 
 network Network
 {
-    parameters:
-        @display("bgb=693,416,grey99");
-        **.csmacdSupport = false;
-        **.eth[*].mac.duplexMode = true;
+    @display("bgb=693,416,grey99");
     submodules:
         switch0: EtherSwitch { @display("p=240,203"); }
         switch1: EtherSwitch { @display("p=408,203"); }
