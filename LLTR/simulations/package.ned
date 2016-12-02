@@ -10,12 +10,12 @@ network Network
 {
     @display("bgb=693,416,grey99");
     submodules:
-        switch0: EtherSwitch { @display("p=240,203"); }
-        switch1: EtherSwitch { @display("p=408,203"); }
-        host0: StandardHost  { @display("p=149,269"); }
-        host1: StandardHost  { @display("p=149,141"); }
-        host2: StandardHost  { @display("p=500,269"); }
-        host3: StandardHost  { @display("p=500,141"); }
+        switch0: EtherSwitch { @display("p=240,203"); eth[*].mac.duplexMode = true; csmacdSupport = false; }
+        switch1: EtherSwitch { @display("p=408,203"); eth[*].mac.duplexMode = true; csmacdSupport = false; }
+        host0: StandardHost  { @display("p=149,269"); eth[*].mac.duplexMode = true; }
+        host1: StandardHost  { @display("p=149,141"); eth[*].mac.duplexMode = true; }
+        host2: StandardHost  { @display("p=500,269"); eth[*].mac.duplexMode = true; }
+        host3: StandardHost  { @display("p=500,141"); eth[*].mac.duplexMode = true; }
     connections:
         switch0.ethg++ <--> Eth100M <--> host0.ethg++;
         switch0.ethg++ <--> Eth100M <--> host1.ethg++;
