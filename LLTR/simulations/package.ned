@@ -1,5 +1,7 @@
 package lltr;
 
+import inet.networklayer.configurator.ipv4.FlatNetworkConfigurator;
+
 import inet.node.inet.StandardHost;
 import inet.node.ethernet.EtherSwitch;
 
@@ -10,6 +12,12 @@ network Network
 {
     @display("bgb=693,416,grey99");
     submodules:
+        configurator: FlatNetworkConfigurator {
+            parameters:
+                @display("p=62,31");
+                networkAddress = "10.0.1.0";
+                netmask = "255.255.255.0";
+        }
         switch0: EtherSwitch { @display("p=240,203"); }
         switch1: EtherSwitch { @display("p=408,203"); }
         host0: StandardHost  { @display("p=149,269"); }
