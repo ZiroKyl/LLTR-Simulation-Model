@@ -16,7 +16,6 @@ network Network
             parameters:
                 @display("p=62,31");
                 config = xmldoc("config.xml");
-                dumpConfig = "config_dump.xml";
         }
         switch0: EtherSwitch { @display("p=240,203"); }
         switch1: EtherSwitch { @display("p=408,203"); }
