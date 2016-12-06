@@ -1,0 +1,22 @@
+<config>
+   <interface hosts="Network.host0" names="eth0" address="10.0.0.1" netmask="255.255.255.248" metric="20"/>
+   <interface hosts="Network.host1" names="eth0" address="10.0.0.2" netmask="255.255.255.248" metric="20"/>
+   <interface hosts="Network.host2" names="eth0" address="10.0.0.3" netmask="255.255.255.248" metric="20"/>
+   <interface hosts="Network.host3" names="eth0" address="10.0.0.4" netmask="255.255.255.248" metric="20"/>
+   <multicast-group hosts="Network.host0" interfaces="eth0" address="224.0.0.1"/>
+   <multicast-group hosts="Network.host1" interfaces="eth0" address="224.0.0.1"/>
+   <multicast-group hosts="Network.host2" interfaces="eth0" address="224.0.0.1"/>
+   <multicast-group hosts="Network.host3" interfaces="eth0" address="224.0.0.1"/>
+   <route hosts="Network.host0" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="0"/>
+   <route hosts="Network.host0" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="20"/>
+   <route hosts="Network.host0" destination="127.0.0.0" netmask="255.0.0.0" gateway="*" interface="lo0" metric="1"/>
+   <route hosts="Network.host1" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="0"/>
+   <route hosts="Network.host1" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="20"/>
+   <route hosts="Network.host1" destination="127.0.0.0" netmask="255.0.0.0" gateway="*" interface="lo0" metric="1"/>
+   <route hosts="Network.host2" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="0"/>
+   <route hosts="Network.host2" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="20"/>
+   <route hosts="Network.host2" destination="127.0.0.0" netmask="255.0.0.0" gateway="*" interface="lo0" metric="1"/>
+   <route hosts="Network.host3" destination="10.0.0.0" netmask="255.255.255.252" gateway="*" interface="eth0" metric="0"/>
+   <route hosts="Network.host3" destination="10.0.0.0" netmask="255.255.255.248" gateway="*" interface="eth0" metric="20"/>
+   <route hosts="Network.host3" destination="127.0.0.0" netmask="255.0.0.0" gateway="*" interface="lo0" metric="1"/>
+</config>
