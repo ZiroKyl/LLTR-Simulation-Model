@@ -15,6 +15,7 @@ network Network
         configurator: IPv4NetworkConfigurator {
             parameters:
                 @display("p=62,31");
+                config = xmldoc("config.xml");
                 dumpConfig = "config_dump.xml";
         }
         switch0: EtherSwitch { @display("p=240,203"); }
