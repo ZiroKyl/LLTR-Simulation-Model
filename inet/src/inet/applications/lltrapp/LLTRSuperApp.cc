@@ -8,6 +8,10 @@ namespace inet {
 
 class INET_API LLTRSuperApp: public cSimpleModule
 {
+	UDPSocket socket;
+
+	/*=================================================================================*/
+
 	int numInitStages() const
 	{
 		return NUM_INIT_STAGES;
@@ -17,7 +21,17 @@ class INET_API LLTRSuperApp: public cSimpleModule
 	{
 		cSimpleModule::initialize(stage);
 
-		//TODO: write here
+		switch(stage){
+		case INITSTAGE_APPLICATION_LAYER:
+			socket.setOutputGate(gate("udpOut"));
+			socket.setTimeToLive(1);
+
+			break;
+		case INITSTAGE_LAST:
+			socket.sendTo(new cPacket("=Packet name="), IPv4Address(10,0,1,4), 1100);
+
+			break;
+		}
 	}
 
 	void handleMessage(cMessage *msg)
@@ -29,7 +43,7 @@ class INET_API LLTRSuperApp: public cSimpleModule
 
 	void finish()
 	{
-		//TODO: write here
+		socket.close();
 
 		cSimpleModule::finish();
 	}

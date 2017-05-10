@@ -8,6 +8,10 @@ namespace inet {
 
 class INET_API LLTRApp: public cSimpleModule
 {
+	UDPSocket socket;
+
+	/*=================================================================================*/
+
 	int numInitStages() const
 	{
 		return NUM_INIT_STAGES;
@@ -17,19 +21,34 @@ class INET_API LLTRApp: public cSimpleModule
 	{
 		cSimpleModule::initialize(stage);
 
-		//TODO: write here
+		switch(stage){
+		case INITSTAGE_APPLICATION_LAYER:
+			socket.bind(1100);
+
+			break;
+		}
 	}
 
 	void handleMessage(cMessage *msg)
 	{
-		//TODO: write here
+		switch(msg->getKind()){
+		case UDP_I_DATA:{
+			EV << "Arrived: " << msg->getName() << endl;
+			delete msg;
 
-		delete msg;
+		}break;
+		case UDP_I_ERROR:{
+			EV_WARN << "Ignoring UDP error report" << endl;
+			delete msg;
+
+		}break;
+		default: throw cRuntimeError("Unrecognized message (%s)%s", msg->getClassName(), msg->getName());
+		}
 	}
 
 	void finish()
 	{
-		//TODO: write here
+		socket.close();
 
 		cSimpleModule::finish();
 	}
