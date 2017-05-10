@@ -1,7 +1,9 @@
 package inet.applications.lltrapp;
 
+import inet.applications.contract.IUDPApp;
 
-simple LLTRSuperApp
+
+simple LLTRSuperApp like IUDPApp
 {
     parameters:
         @display("i=block/app");
