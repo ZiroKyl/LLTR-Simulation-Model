@@ -23,6 +23,7 @@ class INET_API LLTRApp: public cSimpleModule
 
 		switch(stage){
 		case INITSTAGE_APPLICATION_LAYER:
+			socket.setOutputGate(gate("udpOut"));
 			socket.bind(1100);
 
 			break;
