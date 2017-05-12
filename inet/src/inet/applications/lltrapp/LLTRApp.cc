@@ -49,7 +49,8 @@ class INET_API LLTRApp: public cSimpleModule
 
 	void finish()
 	{
-		socket.close();
+		//socket.close(); //"CLOSE" msg can't be delivered to UDP module:
+				          //the event loop already terminated
 
 		cSimpleModule::finish();
 	}
