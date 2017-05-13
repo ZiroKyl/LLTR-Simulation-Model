@@ -8,6 +8,8 @@ namespace inet {
 
 class INET_API LLTRApp: public cSimpleModule
 {
+	int port = -1;
+
 	UDPSocket socket;
 
 	/*=================================================================================*/
@@ -22,9 +24,13 @@ class INET_API LLTRApp: public cSimpleModule
 		cSimpleModule::initialize(stage);
 
 		switch(stage){
+		case INITSTAGE_LOCAL:
+			port = par("port");
+
+			break;
 		case INITSTAGE_APPLICATION_LAYER:
 			socket.setOutputGate(gate("udpOut"));
-			socket.bind(1100);
+			socket.bind(port);
 
 			break;
 		}

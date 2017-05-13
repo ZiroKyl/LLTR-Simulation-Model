@@ -6,6 +6,8 @@ import inet.applications.contract.IUDPApp;
 simple LLTRApp like IUDPApp
 {
     parameters:
+        int port;
+        
         @display("i=block/app");
     gates:
         input  udpIn  @labels(UDPControlInfo/up);
