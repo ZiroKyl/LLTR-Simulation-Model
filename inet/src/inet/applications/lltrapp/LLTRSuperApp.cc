@@ -34,7 +34,7 @@ class INET_API LLTRSuperApp: public cSimpleModule
 
 			break;
 		case INITSTAGE_LAST:
-			socket.sendTo(new cPacket("=Packet name="), IPv4Address(10,0,1,4), port);
+			socket.sendTo(new cPacket("=Broadcast Packet="), IPv4Address(10,0,1,7), port);
 
 			break;
 		}
