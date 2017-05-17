@@ -2,6 +2,7 @@
 //
 
 #include "inet/common/INETDefs.h"
+#include "inet/common/ModuleAccess.h"
 #include "inet/transportlayer/contract/udp/UDPSocket.h"
 
 namespace inet {
@@ -10,6 +11,7 @@ class INET_API LLTRSuperApp: public cSimpleModule
 {
 	int port = -1;
 
+	UDPSocket::SendOptions udpSendOpt;
 	UDPSocket socket;
 
 	/*=================================================================================*/
@@ -32,9 +34,18 @@ class INET_API LLTRSuperApp: public cSimpleModule
 			socket.setOutputGate(gate("udpOut"));
 			socket.setTimeToLive(1);
 
+			{
+				//IInterfaceTable *inet_ift = L3AddressResolver().findInterfaceTableOf(getParentModule());
+				//IInterfaceTable *inet_ift = check_and_cast<IInterfaceTable*>(getParentModule()->getModuleByPath(".interfaceTable"));
+				IInterfaceTable *inet_ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
+
+				udpSendOpt.outInterfaceId = inet_ift->getBiggestInterfaceId();
+				udpSendOpt.srcAddr = inet_ift->getInterfaceById(udpSendOpt.outInterfaceId)->getNetworkAddress();
+			}
+
 			break;
 		case INITSTAGE_LAST:
-			socket.sendTo(new cPacket("=Broadcast Packet="), IPv4Address(10,0,1,7), port);
+			socket.sendTo(new cPacket("=Broadcast Packet="), IPv4Address::ALLONES_ADDRESS, port, &udpSendOpt);
 
 			break;
 		}

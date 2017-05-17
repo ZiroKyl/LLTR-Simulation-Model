@@ -6,6 +6,7 @@ import inet.applications.contract.IUDPApp;
 simple LLTRSuperApp like IUDPApp
 {
     parameters:
+        string interfaceTableModule;   // The path to the InterfaceTable module
         int port;
         
         @display("i=block/app");
