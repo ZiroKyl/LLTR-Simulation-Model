@@ -73,7 +73,10 @@ class INET_API LLTRApp: public cSimpleModule, public TCPSocket::CallbackInterfac
 
 	void socketEstablished(int, void*)
 	{
-		socketTcp.send(new cPacket("=TCP Packet="));
+		cPacket *packet = new cPacket("=TCP Packet=");
+		packet->setByteLength(1);
+
+		socketTcp.send(packet);
 	}
 
 	void socketDataArrived(int, void*, cPacket*, bool)
