@@ -22,6 +22,11 @@
 
 /inet/src/inet/applications/*
 !inet/src/inet/applications/lltrapp/
+!inet/src/inet/applications/contract/
+
+
+/inet/src/inet/applications/contract/*
+!inet/src/inet/applications/contract/ITcpUdpApp.ned
 
 
 /inet/src/inet/node/*
