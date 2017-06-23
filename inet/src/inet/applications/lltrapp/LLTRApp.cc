@@ -3,14 +3,18 @@
 
 #include "inet/common/INETDefs.h"
 #include "inet/transportlayer/contract/udp/UDPSocket.h"
+#include "inet/transportlayer/contract/tcp/TCPSocket.h"
 
 namespace inet {
 
-class INET_API LLTRApp: public cSimpleModule
+class INET_API LLTRApp: public cSimpleModule, public TCPSocket::CallbackInterface
 {
 	int port = -1;
 
 	UDPSocket socket;
+
+	int gateTcpId;
+	TCPSocket socketTcp;
 
 	/*=================================================================================*/
 
@@ -27,11 +31,19 @@ class INET_API LLTRApp: public cSimpleModule
 		case INITSTAGE_LOCAL:
 			port = par("port");
 
+			gateTcpId = gateBaseId("tcpIn");
+
 			break;
 		case INITSTAGE_APPLICATION_LAYER:
 			socket.setOutputGate(gate("udpOut"));
 			socket.setBroadcast(true);
 			socket.bind(port);
+
+			socketTcp.setOutputGate(gate("tcpOut"));
+			socketTcp.setDataTransferMode(TCP_TRANSFER_BYTECOUNT);
+			socketTcp.setCallbackObject(this);
+			socketTcp.bind(port+1);
+			socketTcp.listenOnce();
 
 			break;
 		}
@@ -39,6 +51,11 @@ class INET_API LLTRApp: public cSimpleModule
 
 	void handleMessage(cMessage *msg)
 	{
+		if(msg->arrivedOn(gateTcpId)){
+			socketTcp.processMessage(msg);
+			return;
+		}
+
 		switch(msg->getKind()){
 		case UDP_I_DATA:{
 			EV << "Arrived: " << msg->getName() << endl;
@@ -52,6 +69,22 @@ class INET_API LLTRApp: public cSimpleModule
 		}break;
 		default: throw cRuntimeError("Unrecognized message (%s)%s", msg->getClassName(), msg->getName());
 		}
+	}
+
+	void socketEstablished(int, void*)
+	{
+		socketTcp.send(new cPacket("=TCP Packet="));
+	}
+
+	void socketDataArrived(int, void*, cPacket*, bool)
+	{
+
+	}
+
+	void socketPeerClosed(int connId, void*) {
+		socketTcp.close();
+		socketTcp.renewSocket();
+		socketTcp.bind(port+1);
 	}
 
 	void finish()
