@@ -1,10 +1,9 @@
 package inet.applications.lltrapp;
 
-import inet.applications.contract.IUDPApp;
-import inet.applications.contract.ITCPApp;
+import inet.applications.contract.ITcpUdpApp;
 
 
-simple LLTRSuperApp like IUDPApp, ITCPApp
+simple LLTRSuperApp like ITcpUdpApp
 {
     parameters:
         string interfaceTableModule;   // The path to the InterfaceTable module

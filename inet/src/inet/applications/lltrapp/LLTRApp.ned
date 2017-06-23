@@ -1,10 +1,9 @@
 package inet.applications.lltrapp;
 
-import inet.applications.contract.IUDPApp;
-import inet.applications.contract.ITCPApp;
+import inet.applications.contract.ITcpUdpApp;
 
 
-simple LLTRApp like IUDPApp, ITCPApp
+simple LLTRApp like ITcpUdpApp
 {
     parameters:
         int port;
