@@ -56,7 +56,7 @@ class INET_API LLTRSuperApp: public cSimpleModule, public TCPSocket::CallbackInt
 			break;
 		case INITSTAGE_LAST:
 			socket.sendTo(new cPacket("=Broadcast Packet="), IPv4Address::ALLONES_ADDRESS, port, &udpSendOpt);
-			socketTcp.connect(IPv4Address(10,0,1,2), port+1);
+			socketTcp.connect(IPv4Address(10,0,1,0), port+1);
 
 			break;
 		}
