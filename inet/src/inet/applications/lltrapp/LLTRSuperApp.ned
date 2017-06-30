@@ -6,8 +6,9 @@ import inet.applications.contract.ITcpUdpApp;
 simple LLTRSuperApp like ITcpUdpApp
 {
     parameters:
-        string interfaceTableModule;   // The path to the InterfaceTable module
+        string interfaceTableModule; // The path to the InterfaceTable module
         int port;
+        int packetLength @unit(B);   // length of messages to generate, in bytes
         
         @display("i=block/app");
     gates:
