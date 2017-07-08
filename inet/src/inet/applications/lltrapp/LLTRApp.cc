@@ -89,6 +89,10 @@ class INET_API LLTRApp: public cSimpleModule, public TCPSocket::CallbackInterfac
 			socketStat.bind(port);
 			socketStat.listenOnce();
 
+			UDPSocket socketDISCARD;
+			socketDISCARD.setOutputGate(gate("udpOut"));
+			socketDISCARD.bind(9);
+
 			iN = 0;
 
 		}break;
@@ -107,7 +111,7 @@ class INET_API LLTRApp: public cSimpleModule, public TCPSocket::CallbackInterfac
 			trickleSend();
 		}else{
 			//for multiple gates use std::map<int, (f)()> AND msg->getArrivalGateId()
-			if     (msg->arrivedOn(gateUdpId)) handleUdp(msg);
+			if     (msg->arrivedOn(gateUdpId) && socketTrickle.belongsToSocket(msg)) handleUdp(msg);
 			else if(msg->arrivedOn(gateTcpId)) socketStat.processMessage(msg);
 			else delete msg;
 		}

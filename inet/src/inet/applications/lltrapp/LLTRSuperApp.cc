@@ -58,7 +58,7 @@ class INET_API LLTRSuperApp: public cSimpleModule, public TCPSocket::CallbackInt
 		cSimpleModule::initialize(stage);
 
 		switch(stage){
-		case INITSTAGE_LOCAL:
+		case INITSTAGE_LOCAL:{
 			port   = par("port");
 			pktLen = par("packetLength").longValue();
 
@@ -72,10 +72,14 @@ class INET_API LLTRSuperApp: public cSimpleModule, public TCPSocket::CallbackInt
 
 			countFill.resize(numHosts*combHosts);
 
-			break;
-		case INITSTAGE_APPLICATION_LAYER:
+		}break;
+		case INITSTAGE_APPLICATION_LAYER:{
 			socketFill.setOutputGate(gate("udpOut"));
 			socketFill.setTimeToLive(1);
+
+			UDPSocket socketDISCARD;
+			socketDISCARD.setOutputGate(gate("udpOut"));
+			socketDISCARD.bind(9);
 
 			{
 				//IInterfaceTable *inet_ift = L3AddressResolver().findInterfaceTableOf(getParentModule());
@@ -90,11 +94,11 @@ class INET_API LLTRSuperApp: public cSimpleModule, public TCPSocket::CallbackInt
 			socketStat.setDataTransferMode(TCP_TRANSFER_OBJECT);
 			socketStat.setCallbackObject(this);
 
-			break;
-		case INITSTAGE_LAST:
+		}break;
+		case INITSTAGE_LAST:{
 			setTimeout(evFill, INIT, SIMTIME_ZERO);
 
-			break;
+		}break;
 		}
 	}
 
