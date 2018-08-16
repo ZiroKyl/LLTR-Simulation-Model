@@ -1,0 +1,194 @@
+@charset "utf-8";
+
+html {
+    background-color: #eee;
+}
+body {
+    margin: 0 auto;
+    padding: 2em;
+    max-width: 780px;
+    font: 10pt/1.6 Verdana, sans-serif;
+    color: #222;
+    background-color: #fff;
+    -webkit-box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+    -moz-box-shadow:    0 0 12px rgba(0, 0, 0, 0.4);
+    box-shadow:         0 0 12px rgba(0, 0, 0, 0.4);
+}
+.NZT { -webkit-font-smoothing: none; } /* for macOS */
+
+h1, h2, h3, h4, h5, h6 {
+	line-height: 1.3;
+	-webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	font-weight: normal;
+}
+h1 { font-variant: small-caps; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.375em; }
+h4, h5, h6 {
+	font-family: Verdana, sans-serif;
+	font-size: 1.125em;
+}
+h5 { color: #3D3D3D; }
+h6 { color: #5C5C5C; }
+
+hr {
+	height: 0;
+	border: 0;
+	border-top:    1px solid rgba(0,0,0,.1);
+	border-bottom: 1px solid rgba(255,255,255,.3);
+}
+
+a         { color: #5577AD; text-decoration: none; }
+a:visited { color: #712299; }
+a:hover,
+a:focus   { color: #496085; text-decoration: underline; }
+a:active  { color: #FAA700; text-decoration: underline; }
+
+img {
+	max-width: 100%;
+	-o-object-fit: contain;
+	object-fit: scale-down; /* https://stackoverflow.com/questions/787839/resize-image-proportionally-with-css можно было сделать при помощи "height:auto; width:auto;", но тогда бы не работало уменьшение 2x картинок (как иконка Git в "Части 1")*/
+}
+img[align="center"], img[align="middle"]{ /* Firefox auto fix 'align="center"' -> 'align="middle"'  https://stackoverflow.com/q/45901117  https://habr.com/post/135818/ */
+	display: block;
+	margin: 1em auto;
+}
+
+figure     { text-align: center; }
+figcaption { text-transform: none; }
+
+blockquote {
+	margin:  1em 0;
+	padding: 0 1em;
+	border-left: 0.25em solid #DFE2E5;
+	color: #70767D;
+}
+
+/*The says the W3C's mission is <q cite="http://www.w3.org/Consortium/">To lead the...</q> -> The says the W3C's mission is "To lead the..."*/
+q::before, q::after {
+	content: '"';
+}
+
+summary {
+	display: inline;
+	margin-left: 14px;
+	border-bottom: 1px dotted;
+	font-weight: 400;
+	color: #6D98BD;
+	cursor: pointer;
+}
+/* https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details#Customizing_the_disclosure_widget
+   https://github.com/w3c/csswg-drafts/issues/2084#issuecomment-351177835 */
+summary::-webkit-details-marker { display: none; }
+summary::before {
+	content: '';
+	display: inline-block;
+	margin-left: -16px;
+	width: 16px;
+    height: 16px;
+	vertical-align: text-top;
+	background: url(img/details-marker.gif) no-repeat left top;
+}
+details {
+	display: block;
+	margin: 1em 0;
+}
+details:not([open]) > :not(summary) { display: none; }
+details[open] {
+	padding: 0 10px;
+	border: 1px solid #EEE;
+	color: #666;
+	background: #F9F9F9;
+}
+details[open] > summary {
+	display: block;
+	margin: -1px 3px -0.5em;
+	border-bottom-color: #bbb;
+}
+details[open] > summary::before {
+	background-position: left bottom;
+	margin-left: -14px;
+	width: 14px;
+}
+details hr:first-of-type,
+details hr:last-child { display:none; }
+
+
+kbd {
+	display: inline-block;
+	padding: 0.2em 0.5em 0.2em;
+	border:        1px solid #D9D9D9;
+	border-bottom: 2px solid #C6CBD1;
+    border-radius: 3px;
+    font: 11px/10px Tahoma, sans-serif;
+    vertical-align: middle;
+    color: #575757;
+	background-color: #FCFCFB;
+	text-shadow: 0 1px 0 #FFF;
+}
+
+pre, code { font-family: "Courier New", monospace; } /* for macOS */
+
+:not(pre) > code {
+	border: 1px solid #F2F2F2;
+	border-radius: 3px;
+	padding: 0 0.25em;
+	white-space: pre-wrap;
+	/*background-color: #F8F8F8;/**/
+}
+strong > code {
+	font-weight: normal;
+	background-color: #F8F8F8;
+}
+
+/*<code>function(<var>a</var>, <var>b</var>)</code> -> function(‹a›, ‹b›)*/
+code>var::before {
+	content: "‹";
+}
+code>var::after {
+	content: "›";
+}
+
+pre {
+	border: 1px solid #DDD;
+	border-radius: 3px;
+	padding: 0.5em 1em;
+	font-size: 9.8pt;
+	line-height: 1.5;
+	color: #383A42;
+	background-color: #F8F8F8;
+	overflow-x: auto;
+}
+
+.hljs-comment,.hljs-quote {
+	color: #808080;
+}
+.hljs-doctag,.hljs-keyword,.hljs-formula,.hljs-section,.hljs-name,.hljs-selector-tag,.hljs-deletion,.hljs-subst {
+	color: #4d7386;
+}
+.hljs-literal {
+	color: #7296a3;
+}
+.hljs-string,.hljs-regexp,.hljs-addition,.hljs-meta-string {
+	color: #390;
+}
+.hljs-built_in,.hljs-class .hljs-title {
+	color: #968e5b;
+}
+.hljs-attr,.hljs-attribute,.hljs-variable,.hljs-template-variable,.hljs-type,.hljs-selector-class,.hljs-selector-attr,.hljs-selector-pseudo,.hljs-number {
+	color: #2f98ff;
+}
+.hljs-symbol,.hljs-bullet,.hljs-link,.hljs-meta,.hljs-selector-id,.hljs-title {
+	color: #968e5b;
+}
+
+
+li > pre,
+li > table,
+li > details {
+	margin-top: 0;
+	margin-bottom: 0;
+}
