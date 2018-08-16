@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", function(){
 		_run_.addEventListener("click", addTarget, false);
 		
 		try{
-			if(localStorage.getItem(_localStorageKey) == "1") addTarget();
+			if(window.location.hash == "#i-come-from-habr" || localStorage.getItem(_localStorageKey) == "1") addTarget();
 		}catch(e){
 			// https://stackoverflow.com/questions/30481516/iframe-in-chrome-error-failted-to-read-localstorage-from-window-access-den/44288957#44288957
 			// https://forum.vivaldi.net/topic/26061/local-storage
