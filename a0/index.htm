@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<title>LLTR Часть 0: Автоматическое определение топологии сети и неуправляемые коммутаторы. Миссия невыполнима?</title>
+
+	<link rel="stylesheet" href="../css/main.css">
+
+	<script src="js/main.js" defer></script>
+	<script src="../js/hljs.js" defer></script>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+	<!-- маленький экран смартфона не очень подходит для чтения подобного текста -->
+
+	<link rel="canonical" href="https://habr.com/post/414799/">
+</head>
+<body class="NZT">
+<h1>LLTR Часть 0: Автоматическое определение топологии сети и неуправляемые коммутаторы. Миссия невыполнима?</h1>
+<img id="LLTR_a0_habr-pic" alt="КДПВ: LLTR Часть 0 - пневмотранспорт из Футурамы" align="center" height="360" src="https://hsto.org/webt/sg/ps/xg/sgpsxgveddr8r_mn1e7ppnkstmy.jpeg#futurama2.jpg"/>
+<p>
+	Как построить топологию сети на канальном уровне, если в нужной подсети используются только неуправляемые свитчи? В статье я постараюсь ответить на этот вопрос.
+</p>
+<p>
+	Начну с причины возникновения <strong>LLTR</strong> (<em>Link Layer Topology Reveal</em>).
+</p>
+<p>
+	У меня был один “велосипед” - синхронизатор больших файлов “на полной скорости сети”, способный <nobr>за 3 часа</nobr> целиком залить <nobr>120 GiB</nobr> файл по Fast Ethernet (<nobr>100 Мбит/с</nobr>; 100BASE‑TX; дуплекс) на 1, 10, 30, или <nobr>&gt;&thinsp;200 ПК</nobr>. Это был очень полезный “велосипед”, т.к. скорость синхронизации файла почти не зависела от количества ПК, на которые нужно залить файл. Все бы хорошо, но он требует <strong>знания топологии сети</strong> для своей работы.
+</p>
+<p>
+	Подробнее в статье про него: “<a href="http://9b.asoiu.com/2016/3704-ringsync-синхронизируем-на-полной-скорости-с/">RingSync: синхронизируем на полной скорости сети</a>”.
+</p>
+<details>
+	<summary>Ладно, а зачем понадобилось “гонять” <nobr>120 GiB</nobr> файл по сети на такое количество ПК?</summary>
+	<p>
+		Этим файлом был <abbr title="Virtual Hard Disk">VHD</abbr> с операционной системой, программами, и т.п. Файл создавался на мастер‑системе, а затем распространялся на все остальные ПК. <abbr title="Virtual Hard Disk">VHD</abbr> был не только способом доставки системы на конечные ПК, но и давал возможность восстановления исходного состояния системы при перезагрузке ПК. Подробнее в статье: “<a href="http://9b.asoiu.com/2013/2793-заморозка-системы-история-перехода-с-ew/">Заморозка системы: история перехода с <abbr title="Enhanced Write Filter">EWF</abbr> на <abbr title="differential Virtual Hard Disk">dVHD</abbr></a>”.
+	</p>
+</details>
+<p>
+	Можно продолжить цепочку дальше, но на этом я прервусь.
+</p>
+<p>
+	Существующие протоколы обнаружения топологии канального уровня (<a href="https://ru.wikipedia.org/wiki/LLDP?stable=1" title="Link Layer Discovery Protocol">LLDP</a>, <a href="https://en.wikipedia.org/wiki/Link_Layer_Topology_Discovery?stable=1" title="Link Layer Topology Discovery">LLTD</a>, <a href="https://ru.wikipedia.org/wiki/CDP?stable=1" title="Cisco Discovery Protocol">CDP</a>, …) для своей работы требуют соответствующей поддержки их со стороны всех промежуточных узлов сети. То есть они требуют как минимум управляемых свитчей, которые бы поддерживали соответствующий протокол. На Хабре уже была статья, как используя эти протоколы, “<a href="https://habrahabr.ru/company/tibbo/blog/257911">определить топологию сети на уровнях 2/3 модели <abbr title="Open Systems Interconnection">OSI</abbr></a>”.
+</p>
+<p>
+	Но что же делать, если промежуточные узлы – простые неуправляемые свитчи?
+</p>
+<p>
+	Если интересно как это можно сделать, то добро пожаловать под кат. Обещаю наличие множества иллюстраций и примеров.
+</p>
+<a name="user-css"></a><details>
+	<summary>Немного UserCSS перед прочтением</summary>
+	<p>
+		Наверняка все, кто хотел настроить стили под себя, уже сделали это. Тем не менее, вот <strong>часть</strong> моего UserCSS. Основные изменения:
+	</p>
+	<ul>
+		<li>виден конец раскрытого спойлера (полезно, когда спойлер большой, и разницу в отступе между основным текстом и текстом в спойлере не сразу замечаешь), точнее вернул прежнюю рамку и фон спойлера;</li>
+		<li>блок цитаты вернул свой прежний вид (я показывал нескольким людям, не понимающим русского языка, и не читающим хабр, новые “желтые цитаты”, и они говорили, что это вставки контекстной рекламы…);</li>
+		<li>основной шрифт, его размер, и межстрочный интервал, также вернулись назад (IMHO, с ними длинный текст воспринимается легче);</li>
+		<li>убран рейтинг публикации и количество просмотров, но оставлено количество добавлений в закладки.</li>
+	</ul>
+	<p>
+		В общем, вернул (с небольшими модификациями) знакомый вид основных элементов статьи. С таким оформлением уже было прочитано большое количество хороших статей (всплывают приятные воспоминания).
+	</p>
+	<pre><code class="css">@charset &quot;utf-8&quot;;
+
+body { font-family: Verdana,sans-serif !important; }
+.nav-links__item-link { font-family: Helvetica,Arial,sans-serif !important; }
+.comment__message, .comment-form__preview { font-family:Arial !important; }
+
+.post__text { font-size:13px !important; line-height:1.60 !important; }
+.post__title-text, .post__title_link { font-family: Tahoma,sans-serif !important; line-height:118% !important; }
+.post__title-text { font-size:30px !important; }
+.post__title_link { font-size:26px !important; }
+
+/*
+.post__text-html p &gt; br:first-child, .post__text p+br { display:none !important; }
+.post__text p { margin-bottom: 0.9em; margin-top: 0.9em; }
+/* for test: https://habr.com/post/315186  :（ */
+.post__text br { line-height:normal !important; } /* or 1 ; https://habr.com/company/pt/blog/337450 */
+
+.post__text img { -o-object-fit:contain; object-fit:scale-down; } /* https://stackoverflow.com/questions/787839/resize-image-proportionally-with-css and don't use &quot;height:auto; width:auto;&quot; (example: &lt;img src=&quot;img32x32_2x.png&quot; width=&quot;16&quot; height=&quot;16&quot;&gt;)*/
+
+.post__text h1, .post__text h2, .post__text h3 { font-family: Helvetica,Arial,sans-serif !important; }
+.post__text h2 { font-size:1.5em !important; }
+.post__text h3 { font-size:1.375em !important; }
+.post__text h4, .post__text h5, .post__text h6 { font-family: Verdana,sans-serif !important; font-size:1.125em !important; font-weight:bold !important; }
+.post__text h5 { color:#3D3D3D !important; }
+.post__text h6 { color:#5C5C5C !important; }
+
+.post__text ul li, .post__text ul ul li, .post__text ul ol li, .post__text ol li, .post__text ol ul li, .post__text ol ol li { line-height:inherit !important; padding:0 !important; }
+.post__text ul, .post__text ul ul, .post__text ul ol, .post__text ol, .post__text ol ul, .post__text ol ol { margin-left:35px !important; }
+.post__text ul ul, .post__text ul ol, .post__text ol ul, .post__text ol ol { margin-bottom:9px !important; }
+
+.post__text .spoiler .spoiler_title { color:#6DA3BD !important; font-size:inherit !important; font-weight:400 !important; }
+.post__text .spoiler::before { margin-top:2px !important; }
+.post__text .spoiler .spoiler_text { color:#666 !important; background:#F9F9F9 !important; border:1px solid #EEE !important; }
+.post__text .spoiler .spoiler_text hr:first-child,
+.post__text .spoiler .spoiler_text hr:last-child { display:none !important; }
+
+.post__text code { font-size:13px !important; /*background-color:#F8F8F8 !important;*/ border:1px solid #F2F2F2 !important; border-radius:3px !important; padding:0 0.25em !important; white-space:pre-wrap !important; }
+.post__text strong &gt; code { font-weight: normal !important; background-color: #F8F8F8 !important; }
+.post__text pre code { line-height:1.5 !important; background-color:#F8F8F8 !important; border-color:#DDD !important; padding:0.5em 1em !important; white-space:pre !important; overflow-x:auto !important; }
+.hljs-comment, .hljs-quote { color:#808080 !important; font-style:inherit !important; }
+.hljs-doctag,.hljs-keyword,.hljs-formula,
+.hljs-section,.hljs-name,.hljs-selector-tag,.hljs-deletion,.hljs-subst { color:#4d7386 !important; }
+.hljs-literal{ color:#7296a3 !important; }
+.hljs-string,.hljs-regexp,.hljs-addition,.hljs-meta-string{ color:#390 !important; }
+.hljs-built_in,.hljs-class .hljs-title{ color:#968e5b !important; }
+.hljs-attr,.hljs-attribute,.hljs-variable,.hljs-template-variable,.hljs-type,.hljs-selector-class,.hljs-selector-attr,.hljs-selector-pseudo,.hljs-number{ color:#2f98ff !important; }
+.hljs-symbol,.hljs-bullet,.hljs-link,.hljs-meta,.hljs-selector-id,.hljs-title{ color:#968e5b !important; }
+
+.post__text kbd { display:inline-block !important; padding:0.2em 0.5em 0.3em !important; vertical-align:middle !important; background-color:#FCFCFB !important; border:1px solid #D9D9D9 !important; border-radius:3px !important; border-bottom-color:#C6CBD1 !important; box-shadow:inset 0px -1px 0px #C6CBD1 !important; font:11px/10px Tahoma, sans-serif !important; color:#575757 !important; text-shadow:0px 1px 0px #FFF !important; }
+
+.post__text blockquote,
+.comment__message blockquote, .comment-form__preview blockquote { background:inherit !important; border-left:0.25em solid #DFE2E5 !important; color:#70767D !important; padding:0 1em !important; }
+
+.post__text .user_link { display:inline-block !important; padding-left:14px !important; color:#666 !important; font:92.4%/1.5em Arial !important; background:url(&quot;https://hsto.org/storage/habrastock/i/bg-user2.gif&quot;) 0px 60% no-repeat !important; }
+.post__text .user_link::before { content:'@' !important; color:transparent !important; position:absolute !important; left:0 !important; }/*for copy-paste (for Opera Presto)*/
+
+.voting-wjt_post&gt;.voting-wjt__counter,
+.post-stats__item_views { display:none !important; }</code></pre>
+	<p>
+		<b>UPDATE</b>: UserJS – Anti-quotes-hell и <code>&lt;code&gt;</code> (см. подробнее в <a href="https://habr.com/post/414799/#comment_18998403">этом комментарии</a>):
+	</p>
+	<pre><code class="javascript">// ==UserScript==
+// @version     1.0.0
+// @namespace   https://habr.com/users/ZiroKyl/
+// @homepageURL https://habr.com/post/414799/
+// @name        Anti-quotes-hell for Habr
+// @include     https://habr.com/post/*
+// @include     https://habr.com/company/*/blog/*
+// ==/UserScript==
+
+// Enable opera:config#UserPrefs|UserJavaScriptonHTTPS
+
+
+if(self == top){
+    window.opera.addEventListener(&quot;BeforeEvent.DOMContentLoaded&quot;, function(){ &quot;use strict&quot;;
+        var code = document.querySelectorAll(&quot;.post__text :not(pre) &gt; code&quot;);
+
+        var unQuote = function(el){
+            var aN = null, a = &quot;&quot;,
+                bN = null, b = &quot;&quot;;
+
+            if((aN = el.previousSibling) &amp;&amp; (bN = el.nextSibling) &amp;&amp;
+                aN.nodeType == 3         &amp;&amp;  bN.nodeType == 3     ){
+
+                a = aN.data; a = a.charCodeAt(a.length-1);
+                b = bN.data; b = b.charCodeAt(0);
+
+                // a != &quot; &quot; &amp;&amp; ( a+1 == b &amp;&amp; (a == &quot;“&quot;  || a == &quot;‘&quot; )  ||  (a == &quot;«&quot; &amp;&amp; b == &quot;»&quot;)  ||  a == b &amp;&amp; (a == &quot;'&quot; || a == &quot;`&quot; || a == '&quot;') )
+                if(a != 32  &amp;&amp; ( a+1 == b &amp;&amp; (a == 8220 || a == 8216)  ||  (a == 171 &amp;&amp; b == 187)  ||  a == b &amp;&amp; (a == 39  || a == 96  || a == 34 ) )){
+                    aN.data = aN.data.slice(0,-1);
+                    bN.data = bN.data.slice(1);
+
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+
+        var aN = null, bN = null, pElTagName = &quot;&quot;;
+
+        for(var i=code.length;i--;){
+            // “&lt;code&gt;...&lt;/code&gt;”  -&gt;  &lt;code&gt;...&lt;/code&gt;
+            if(!unQuote(code[i])                                                                  &amp;&amp;
+                ( code[i].previousElementSibling == null &amp;&amp; code[i].nextElementSibling == null &amp;&amp;
+                  (pElTagName = code[i].parentElement.tagName)                                 &amp;&amp;
+                  (pElTagName == &quot;A&quot; || pElTagName == &quot;STRONG&quot;)                                 ) &amp;&amp;
+                ( (!(aN = code[i].previousSibling) || aN.data.trim().length == 0) &amp;&amp;
+                  (!(bN = code[i].nextSibling)     || bN.data.trim().length == 0)  )              ){
+                // “&lt;a&gt;&lt;code&gt;...&lt;/code&gt;&lt;/a&gt;”     -&gt;  &lt;a&gt;&lt;code&gt;...&lt;/code&gt;&lt;/a&gt;
+                // “&lt;a&gt; &lt;code&gt;...&lt;/code&gt; &lt;/a&gt;”   -&gt;  &lt;a&gt; &lt;code&gt;...&lt;/code&gt; &lt;/a&gt;
+                // “&lt;a&gt;&lt;code&gt;...&lt;/code&gt;...&lt;/a&gt;”  -X
+                unQuote(code[i].parentElement);
+            }
+        }
+    }, false);
+}</code></pre>
+	<p>
+		Основные стили взял из предыдущих версий <s>Матрицы</s> Хабра:
+	</p>
+	<ul>
+		<li><a href="https://web.archive.org/web/20120620035327/http://habrahabr.ru:80/post/15596/">2012-06</a> (UserCSS) – основной шрифт Verdana 13px, межстрочный интервал 160%</li>
+		<li><a href="https://web.archive.org/web/20120601043112/https://habrahabr.ru/post/145003/">2012-06</a> – первое появление спойлера + блок с кодом</li>
+		<li><a href="https://web.archive.org/web/20120414063626/http://habrahabr.ru/post/130868/">2012-04</a> – таблица + заголовки</li>
+		<li><a href="https://web.archive.org/web/20120519223242/http://habrahabr.ru/post/126307/">2012-05</a> – больше заголовков</li>
+		<li><a href="https://web.archive.org/web/20120511021704/http://habrahabr.ru:80/post/141438">2012-05</a> – просто хорошая статья</li>
+		<li><a href="https://web.archive.org/web/20110506203616/http://habrahabr.ru/blogs/algorithm/113642/">2011-05</a> - межстрочный интервал 1.54em (в узкой колонке, с пустым пространством слева и справа, текст читается хуже, чем при интервале 160%), блоки с кодом изменили цвет фона и потеряли обводку, (что еще: изменилась “шапка” хабы [одна статья может быть в многих хабах] стали блогами [одна статья может быть только в одном блоге])</li>
+		<li><a href="https://web.archive.org/web/20110111174044/http://habrahabr.ru/blogs/javascript/111563">2011-01</a> – содержимое растягивается на всю ширину экрана (в таком формате текст с уменьшенным межстрочным интервалом выглядит оптимально, IMHO), IMHO: широкая правая колонка (при ширине экрана 1600px) создает ощущение уюта, а так же здесь лучше, чем в других версиях выглядят комментарий (подобраны удачные размеры отступов)</li>
+		<li><a href="https://web.archive.org/web/20100818045720/http://habrahabr.ru:80/blogs/CUDA/54707/">2010-08</a>, <a href="https://web.archive.org/web/20091213082512/http://habrahabr.ru:80/blogs/CUDA/54707/">2009-12</a>, <a href="https://web.archive.org/web/20090521015826/http://habrahabr.ru:80/blogs/CUDA/54707/">2009-05</a>, <a href="https://web.archive.org/web/20090321120639/http://habrahabr.ru:80/blogs/CUDA/54707/">2009-03</a> – изменения на примере одной и той же статьи</li>
+		<li><a href="https://web.archive.org/web/20100213211711/http://habrahabr.ru/blogs/artificial_intelligence/83781">2010-02</a>, <a href="https://web.archive.org/web/20090616083230/http://habrahabr.ru:80/blogs/artificial_intelligence/40137">2009-06</a> – статьи с более плотным текстом (более длинные абзацы)</li>
+		<li><a href="https://web.archive.org/web/20100317201736/http://habrahabr.ru:80/blogs/opera/78983/">2010-03</a>, <a href="https://web.archive.org/web/20100213195954/http://habrahabr.ru:80/company/opera/blog/83847/">2010-02</a>, <a href="https://web.archive.org/web/20090618091029/http://habrahabr.ru:80/company/opera/blog/62160/">2009-06</a>, <a href="https://web.archive.org/web/20081218173804/http://habrahabr.ru:80/blogs/opera/46176/">2008-12</a> – позитивные воспоминания про Opera</li>
+		<li><a href="https://web.archive.org/web/20071229110456/http://habrahabr.ru:80/blog/announcements/33064.html">2007-12</a> – Хабразачистка ：）и облако тегов в правой колонке</li>
+		<li><a href="https://web.archive.org/web/20070422130629/http://www.habrahabr.ru:80/blog/linux/9561.html">2007-04</a> – межстрочный интервал еще меньше</li>
+	</ul>
+</details>
+<!--more-->
+<p>
+	Про LLTR я собираюсь написать цикл статей с общей тематикой “как создать протокол”. Это статья – нулевая.
+</p>
+
+<h2 id="analogiya-iz-fizicheskogo-mira--pnevmotransport"><a href="#analogiya-iz-fizicheskogo-mira--pnevmotransport" title="Ссылка на раздел"><font color="gray">#</font></a> Аналогия из физического мира – пневмотранспорт</h2><hr />
+<p>
+	Представим, что у нас есть 2 <a href="https://ru.wikipedia.org/wiki/Пневматическая_почта?stable=1">пневмо-трубы</a>…
+</p>
+<img id="fig_tube1-3" alt="Фото комнаты с терминалом пневматического трубопровода, и пустыми контейнерами" align="center" height="410" src="https://hsto.org/webt/q2/75/x-/q275x-u0zvrp_v5nli70z2pscem.jpeg#tube1-3.jpg"/>
+<p>
+	Одна труба для входящих посылок (красные контейнеры), и одна для исходящих (синие контейнеры).
+</p>
+<p>
+	У нас есть несколько знакомых, которые подключены к этой же системе пневмотранспорта. Мы можем посылать им контейнеры, и они нам могут присылать контейнеры. Адрес доставки контейнера наносится на сам контейнер (например, в <abbr title="Radio-Frequency IDentification">RFID</abbr> или bar‑code).
+</p>
+<p>
+	В какой‑то момент всем захотелось узнать маршрут, по которому каждый день проходят их посылки, и узнать к каким свитчам (коммутационным центрам) подключены их пневмо‑трубы, т.е. узнать топологию пневмо‑сети.
+</p>
+<a href="https://hsto.org/webt/ax/jx/eh/axjxehi6r_p7wmpbb6sa7iutvnk.jpeg#tube1-M4.jpg"><img id="fig_tube1-M4" alt="Путь от терминала до комуникационного центра" align="center" height="224" src="https://hsto.org/webt/ax/jx/eh/axjxehi6r_p7wmpbb6sa7iutvnk.jpeg#tube1-M4.jpg"/></a>
+<p>
+	Все, что можем делать мы и наши друзья – это посылать и принимать контейнеры с неким содержимым.
+</p>
+<p>
+	Предлагаю подумать, как в таком случае можно построить топологию этой сети. Несколько вариантов находятся под спойлером:
+</p>
+<details>
+	<summary>спойлер</summary>
+	<p>
+		1. Если трубы прозрачные, как у пневмотранспорта в Футураме (<a href="#LLTR_a0_habr-pic" title="Картинка Для Привлечения Внимания">КДПВ</a>), то можно просто отправить видеокамеру, которая заснимет весь путь движения контейнера.
+	</p>
+	<p>
+		2. Можно расположить в контейнере датчики (гироскоп, компас, акселерометр, …), и построить карту перемещений по собранным ими данным.
+	</p>
+	<p>
+		3. Можно обойтись и без датчиков, отправляя специальным образом контейнеры, наполненные воздухом. Ниже рассматривается именно этот вариант, т.к. он применим к обычным проводным Ethernet‑сетям.
+	</p>
+</details>
+
+<h2 id="lltr-basic"><a href="#lltr-basic" title="Ссылка на раздел"><font color="gray">#</font></a> LLTR Basic</h2><hr />
+<p>
+	Возвращаясь к проводным Ethernet‑сетям, напомню о проблеме, благодаря которой LLTR был создан. Проблема подробно описана в разделе <a href="http://9b.asoiu.com/2016/3704-ringsync-синхронизируем-на-полной-скорости-с/#h-3-3-pc-podklyucheny-k-raznym-switch">“PC подключены к разным switch” статьи про RingSync</a> – это проблема снижения скорости при неправильном построении цепочки пиров в сети с несколькими свитчами. Для правильного построения цепочки пиров нужна информация о топологии сети.
+</p>
+<p>
+	Небольшой пример (проблемы нет):
+</p>
+<img id="fig_RingSync_no_problem" alt="Диаграмма: RingSync проблемы нет. Примечание: компактно описать нарисованное на диаграмме довольно сложно, поэтому в alt изображений я буду указывать тип изображения и перевод имени файла изображения." align="center" height="94" src="https://hsto.org/webt/vh/v8/_i/vhv8_ixspw6409nbuiiuc3ilt5w.png#RingSync_no_problem.svg.png"/>
+<p>
+	У нас есть <nobr>2 свитча</nobr> (соединенных одним “проводом”), <nobr>4 хоста (пира)</nobr>, все соединения дуплексные, и скорость всех соединений одинаковая. Стрелками показан путь движения данных. В данном случае проблемы нет – данные передаются на максимальной скорости сети.
+</p>
+<p>
+	Другой пример (проблема есть):
+</p>
+<img id="fig_RingSync_problem_exist" alt="Диаграмма: RingSync проблема есть" align="center" height="113" src="https://hsto.org/webt/bv/hw/zy/bvhwzylksm_5bykq8ocep3s7atm.png#RingSync_problem_exist.svg.png"/>
+<p>
+	В этом примере цепочка пиров построилась менее удачно (т.к. нам не известна топология сети), что привело к образованию “бутылочного горлышка” (два однонаправленных потока данных в одном соединении) и падению общей скорости передачи данных.
+</p>
+<p>
+	В данном случае решение проблемы (определение топологии сети) кроется в причине необходимости ее решения – в образовании “бутылочного горлышка”. Целиком цепочка проблем выглядит следующим образом: нужно избавиться от “бутылочных горлышек” → нужно построить “правильную” цепочку → нужно определить топологию сети. К слову, мы не будем перебирать все возможные комбинаций цепочки, в поисках цепочки без “бутылочных горлышек” – это слишком долго, вместо этого поступим умнее/хитрее:
+</p>
+<img id="fig_LLTR_Basic_broadcast" alt="Диаграмма: LLTR Basic broadcast" align="center" height="179" src="https://hsto.org/webt/cw/ak/ek/cwakekd05nrx_cuyvsda-taeeiu.png#LLTR_Basic_broadcast.svg.png"/>
+<p>
+	Заполним сеть трафиком – выделим один из хостов под роль источника broadcast трафика. На всех остальных хостах запустим сбор статистики по принятому broadcast трафику. Далее выберем любые 2 не broadcast хоста, и начнем посылать с первого хоста unicast трафик на второй хост. По собираемой на хостах статистике broadcast трафика в этот момент, будет видно, что на некоторых хостах упала скорость получения broadcast трафика – эти хосты, в данном случае, были подключены к правому свитчу. А на всех хостах, подключенных к левому свитчу, скорость получения broadcast трафика не изменилась.
+</p>
+<p>
+	Связь между двумя свитчами стала “бутылочным горлышком”, и позволила выделить все хосты, подключенные к правому свитчу в отдельный кластер.
+</p>
+<p>
+	<b>Note</b>: В обычных случаях принято всеми силами бороться с broadcast, особенно с тем, который “утилизирует всю пропускную способность”, но мы имеем дело с сетью на неуправляемых свитчах, которая возможно не раз страдала от broadcast‑шторма/флуда, и хоть раз в жизни хочется, чтобы такой broadcast принес пользу. Кстати, вполне возможно заменить broadcast на unicast, только такое сканирование займет больше времени. <em>Для пневмотранспорта тоже придется использовать unicast, пока не выпустят установку, клонирующую материю, и не установят ее в каждый коммутационный центр</em> ：）.
+</p>
+<p>
+	Для построения корректной топологии сети, осталось повторить то же самое для всех возможных комбинации ориентированных пар не broadcast хостов. Что значит “ориентированных пар” – надо посылать вначале unicast трафик из первого хоста на второй, и собрать статистику, а потом поменять направление (трафик из второго в первый), и собрать отдельную статистику по этому варианту.
+</p>
+<p>
+	Количество комбинаций, которые нужно проверить, можно посчитать по формуле <nobr>n×(n−1)</nobr> {каждому (n) нужно “поздороваться” со всеми остальными <nobr>(n−1)</nobr>, даже если с ним ранее они уже здоровались}, где n – количество всех хостов минус один (broadcast хост).
+</p>
+<p>
+	В итоге, вся собранная статистика подается на вход специальному алгоритму (о нем подробнее в одной из следующих статей), который и строит топологию сети (точнее он делает больше – сразу строит правильную цепочку пиров для RingSync).
+</p>
+<p>
+	Кстати, минимальная конфигурация сети, которую целесообразно сканировать состоит из двух свитчей, к каждому из которых подключено два хоста. Что касается скорости broadcast и unicast, то broadcast трафик можно держать в диапазоне <nobr>75%&thinsp;-&thinsp;100%</nobr> от “<a href="https://en.wikipedia.org/wiki/Bit_rate?stable=1#Information_rate">чистой скорости передачи данных</a>” (net bitrate; поиск по “Ethernet 100Base-TX”), а unicast в диапазоне <nobr>80%&thinsp;-&thinsp;100%</nobr>.
+</p>
+<details>
+	<summary>А что будет, если убрать один из хостов?</summary>
+	<p>
+		Получится сеть, в которой один свитч, к которому подключены <nobr>3 хоста</nobr>, и в разрез между одним из хостов и свитчем подключен еще один свитч. То есть, в сети находится всего лишь один свитч (вставленный в разрез превратился в “перемычку” – его не считаем), а это идеальный случай для RingSync “бутылочному горлышку” неоткуда взяться. <em>Раз нет проблемы то и нечего устранять</em> ：）
+	</p>
+</details>
+
+<h2 id="lltr-advanced"><a href="#lltr-advanced" title="Ссылка на раздел"><font color="gray">#</font></a> LLTR Advanced</h2><hr />
+<a href="https://hsto.org/webt/9j/pe/-k/9jpe-ki7idvp8mgs90undn9otju.png#sticker_2x.png"><img id="fig_sticker" alt="Картинка из теста IQ" title="Картинка из теста IQ" align="center" height="428" src="https://hsto.org/webt/wu/rd/tr/wurdtrgr9lpx_apdnzvb_xusiya.png#sticker.png"/></a>
+<p align="center">
+	<em>Напоминает одну из картинок теста IQ</em>
+</p>
+<p>
+	Как выше было написано, при использовании LLTR Basic нужно <nobr>n×(n−1)</nobr> раз сканировать сеть, что приводит нас к <nobr>O(n<sup>2</sup>)</nobr>. Для небольшого количества хостов – это не проблема:
+</p>
+<ul>
+	<li>4 хоста, n=3 ⇒ 6 сканирований;</li>
+	<li>30 хостов, n=29 ⇒ 812 сканирований.</li>
+</ul>
+<p>
+	Но если у нас 200 хостов, n=199 ⇒ <nobr>39&thinsp;402</nobr> сканирования. Дальше еще хуже…
+</p>
+<p>
+	Посмотрим, как можно улучшить ситуацию. <a href="https://habrahabr.ru/post/265583/#comment_8555873">Грокнем</a> два простых варианта топологии дерево:
+</p>
+<ul>
+	<li>звезда из свитчей;</li>
+	<li>последовательное соединение свитчей.</li>
+</ul>
+<h3 id="topologiya-zvezda-iz-svitchey"><a href="#topologiya-zvezda-iz-svitchey" title="Ссылка на раздел"><font color="gray">#</font></a> Топология: “звезда из свитчей”</h3>
+<img id="fig_LLTR_Advanced_star_0" alt="Диаграмма: LLTR Advanced звезда 0" align="center" height="285" src="https://hsto.org/webt/kq/du/pw/kqdupwwbdcakifkimzzaayhhnbq.png#LLTR_Advanced_star_0.svg.png"/>
+<p>
+	Ниже пошагово поясняется изображенное на этой картинке действо.
+</p>
+<p>
+	У нас есть 5 свитчей и 12 хостов. Хосты обозначаются кругами [●] внутри свитча, к которому они подключены. Полностью черный свитч – это “корневой” свитч.
+</p>
+<p>
+	Один из хостов выделим под роль источника broadcast трафика (на схеме изображен окружностью [○]).
+</p>
+<p>
+	Если использовать LLTR Basic, то для 12 хостов, n=11 ⇒ нужно 110 сканирований (итераций).
+</p>
+<p>
+	<strong>Итерация 1</strong>. Выберем один из хостов (обозначен синим <img alt="кружочком со стрелкой вверх" width="10" height="18" src="https://hsto.org/webt/zs/df/e5/zsdfe5fldtzhoqalclmcvp8tjhu.png#LLTR_Advanced_unicast_src.png"/>) в качестве источника (src) unicast трафика, и один хост (обозначен синим <font color="#4285F4">●</font>) в качестве получателя (dst) unicast трафика. Запустим, в определенный промежуток времени, сканирование и сбор статистики.
+</p>
+<p>
+	Собранная статистика показала падение скорости broadcast трафика на 9‑и хостах. Для наглядности, падение скорости на всех хостах, подключенных к свитчу, обозначается как <img alt="прямоугольник со стрелкой вниз" width="20" height="15" src="https://hsto.org/webt/q8/qa/6j/q8qa6juznz0hripzx6lh5k08-2e.png#LLTR_Advanced_broadcast_speed_down_on_all_hosts.png"/>.
+</p>
+<p>
+	Исходя из выявленного падения скорости, можно распределить хосты по двум кластерам:
+</p>
+<ul>
+	<li><strong><font color="#FDD569">желтый</font></strong> (первоначальный) – хосты на которых скорость broadcast оставалась близкой к максимуму;</li>
+	<li><strong><font color="#4CD46B">зеленый</font></strong> – хосты, на которых было зафиксировано значительное падение скорости broadcast.</li>
+</ul>
+<p>
+	<strong>Итерация 2</strong>. Выберем другие unicast src и dst хосты, и опять запустим сканирование и сбор статистики.
+</p>
+<p>
+	Падение скорости зафиксировано на 3‑х хостах. Сейчас они находятся в <strong><font color="#4CD46B">зеленом</font></strong> кластере, т.к. в предыдущей итерации на этих хостах тоже было зафиксировано падение скорости. Переместим эти 3 хоста из <strong><font color="#4CD46B">зеленого</font></strong> кластера в новый <strong><font color="#ED5547">красный</font></strong> кластер.
+</p>
+<p>
+	<strong>Итерация 3</strong>. Опять выберем другие unicast src и dst хосты, и опять запустим сканирование и сбор статистики.
+</p>
+<p>
+	Падение скорости зафиксировано на других 3‑х хостах. Сейчас они находятся в <strong><font color="#4CD46B">зеленом</font></strong> кластере. Переместим эти 3 хоста из <strong><font color="#4CD46B">зеленого</font></strong> кластера в новый <strong><font color="#9C8FD7">фиолетовый</font></strong> кластер.
+</p>
+<p>
+	<strong><a name="LLTR_Advanced_star_0-conclusion"></a>Итог</strong>: уже после <strong>трех</strong> итераций из 110, все хосты были разбиты по кластерам, соответствующим их свитчам. В оставшихся 107 итерациях новых кластеров образовано не будет.
+</p>
+<p>
+	Это был идеальный случай – мы либо знали топологию сети, либо нам очень повезло.
+</p>
+<h4 id="interesno-kakie-mogut-byt-varianty-pervoy-iteracii"><a href="#interesno-kakie-mogut-byt-varianty-pervoy-iteracii" title="Ссылка на раздел"><font color="gray">#</font></a> Интересно, какие могут быть варианты первой итерации?</h4>
+<p>
+	<strong>Вариант 1: “unicast on broadcast sw”</strong>. Unicast src расположен на том же свитче, что и broadcast src (также, как и в примере выше на рисунке в итерации 1). Unicast dst располагается на любом другом (не broadcast src) свитче.
+</p>
+<img id="fig_LLTR_unicast_on_broadcast_sw" alt="Анимация: LLTR unicast расположен на broadcast свитче" align="center" height="159" src="https://hsto.org/webt/g5/30/la/g530la--nnuiayvlemfbdhz6ona.gif#LLTR_unicast_on_broadcast_sw.gif"/>
+<p>
+	Во всех случаях реакция сети на сканирование одинаковая – падение скорости на всех “не broadcast src” свитчах. Это понятно - unicast src вливается в то же начало канала, что и broadcast src – отсюда падение скорости на всех остальных свитчах, и неважно на каком из них находится unicast dst.
+</p>
+<p>
+	<strong>Вариант 2: “unicast general”</strong>. Unicast src располагается на любом “не broadcast src” свитче. Unicast dst располагается на любом другом (“не broadcast src” и “не unicast src”) свитче.
+</p>
+<img id="fig_LLTR_unicast_general" alt="Анимация: LLTR общий случай unicast" align="center" height="159" src="https://hsto.org/webt/pp/rz/z2/pprzz20e3jcilksjz-x977hvmd0.gif#LLTR_unicast_general.gif"/>
+<p>
+	Во всех случаях падение скорости происходит на том из свитчей, на котором был расположен unicast dst. Это же поведение сети было на итерации 2 и 3 (см. рисунок) из примера в начале раздела.
+</p>
+<p>
+	<strong>Вариант 3: “unicast to broadcast sw”</strong>. Unicast src располагается на любом “не broadcast src” свитче (также как и в варианте 2). Unicast dst расположен на том же свитче, что и broadcast src.
+</p>
+<img id="fig_LLTR_unicast_to_broadcast_sw" alt="Анимация: LLTR unicast в broadcast свитч" align="center" height="141" src="https://hsto.org/webt/g0/xd/so/g0xdsoosr-xhrmb2sl3dy-g51eo.gif#LLTR_unicast_to_broadcast_sw.gif"/>
+<p>
+	В этих случаях реакция сети на сканирование отсутствует. Если в предыдущих вариантах (1 и 2) создавался новый кластер, то в этом варианте новые кластеры не создаются. Отчасти это плохо – мы не получаем новой информации о топологии сети (на самом деле в некоторых случаях, и если эта итерация не первая, то можно получить немного информации – о местоположении unicast dst).
+</p>
+<p>
+	<strong>Вариант 4: “unicast in sw”</strong>. Unicast src и dst расположены на одном и том же свитче.
+</p>
+<img id="fig_LLTR_unicast_in_sw" alt="Анимация: unicast внутри свитча" align="center" height="141" src="https://hsto.org/webt/1o/-k/7d/1o-k7dsd2tjkk2kquvu4kiev8ru.gif#LLTR_unicast_in_sw.gif"/>
+<p>
+	Здесь также сеть никак не реагирует на сканирование, и соответственно нету новых кластеров.
+</p>
+<p>
+	<strong>Итог</strong>. Варианты 1 и 2 – хорошие, на них сеть реагирует, и дает нам новую информацию о своей топологии. А на основе этой информации создаются новые кластеры.
+</p>
+<p>
+	Варианты 3 и 4 могут сказать только то, что unicast dst находится либо на одном свитче с broadcast src, либо на одном свитче с unicast src. Причем, дать полную информацию за одну итерацию о точном местоположении unicast dst они сами не могут – всегда будет или рядом с broadcast src, или с unicast src. Точное местоположение можно получить, только объединив полученную информацию с информацией из других итераций.
+</p>
+<h4 id="a-byl-li-vybor-unicast-src-i-dst-v-primere-sluchaynym"><a href="#a-byl-li-vybor-unicast-src-i-dst-v-primere-sluchaynym" title="Ссылка на раздел"><font color="gray">#</font></a> А был ли выбор unicast src и dst в примере случайным?</h4>
+<p>
+	<em><font color="gray">Может выбор был не случайным, и в нем есть скрытая закономерность?</font></em>
+</p>
+<p>
+	Ok, мы только что посмотрели, как сеть реагирует на различные варианты сканирования. Помните пример из начала раздела, возможно, настало время посмотреть на него под “новым углом”, и ответить на вопрос: случайно ли я выбирал unicast src и dst, или схитрил?
+</p>
+<img id="fig_LLTR_Advanced_star_0-probability" alt="Диаграмма: LLTR Advanced звезда 0 - вероятности" align="center" height="501" src="https://hsto.org/webt/hd/jb/qf/hdjbqfsi4opivk0qbbznjsafnou.png#LLTR_Advanced_star_0.probability.svg.png"/>
+<p>
+	Эта картинка аналогична картинке из начала раздела, отличие в том, что к каждой итерации добавились альтернативные варианты выбора unicast src, и кое‑что справа…
+</p>
+<p>
+	Этим “кое‑что” является подсчет вероятности образования нового кластера (количество вариантов, при которых новый кластер создастся, деленное на количество вариантов при которых новый кластер создастся + количество вариантов, не приводящих к созданию нового кластера). Варианты подсчитывались относительно зафиксированного unicast src, и свободного unicast dst. Unicast dst “свободный” – это значит, что рассматривались все возможные варианты его местоположения.
+</p>
+<p>
+	То есть, в примере я специально выбирал те варианты, у которых была наибольшая вероятность образования нового кластера. К сожалению, в реальности такой оценкой (вероятностей) мы не сможем воспользоваться. Не зря в конце я написал:
+</p>
+<blockquote cite="#LLTR_Advanced_star_0-conclusion">Это был идеальный случай – мы либо знали топологию сети, либо нам очень повезло.</blockquote>
+<p>
+	Однако способность оценивать вероятность образования нового кластера пригодится нам ниже.
+</p>
+<h4 id="skanirovat-vnutri-klastera-ili-ispolzovat-mezhklasternoe-skanirovanie--vot-v-chem-vopros"><a href="#skanirovat-vnutri-klastera-ili-ispolzovat-mezhklasternoe-skanirovanie--vot-v-chem-vopros" title="Ссылка на раздел"><font color="gray">#</font></a> Сканировать внутри кластера, или использовать межкластерное сканирование – вот в чем вопрос…</h4>
+<p>
+	На примере выше в последней (3‑й) итерации использовалось сканирование между кластерами. Так ли оно хорошо, ведь вначале использовали сканирование внутри кластера?
+</p>
+<p>
+	<b>Note</b>: Если unicast src и dst находятся в одном и том же кластере – это <strong>сканирование внутри кластера</strong>. Если unicast src находится в одном кластере, а unicast dst в другом – это <strong>межкластерное сканирование</strong>.
+</p>
+<p>
+	Если посмотреть на вероятности в 3‑й итерации, то у межкластерного сканирования будет 0.60 против 0.30 у сканирования внутри кластера. Вероятность словно говорит нам “используй межкластерное сканирование, бро.”, но стоит ли слепо следовать ее советам?
+</p>
+<p>
+	<b>Note</b>: Использование только одного типа сканирования (или внутри кластера, или межкластерное) – позволит значительно сократить количество итераций.
+</p>
+<p>
+	Если в примере выше, начиная с 4‑й итерации, начать сканировать только <strong>внутри кластера</strong>, то это займет 20 итераций <nobr>(3×2 +</nobr> <nobr>3×2 +</nobr> <nobr>2×1 +</nobr> <nobr>3×2)</nobr>, всего получится <strong>23 итерации</strong> вместо 110 (как было рассчитано в начале раздела). Если с той же 4‑й итерации, начать использовать только <strong>межкластерное сканирование</strong>, то это займет 87 итераций <nobr>(3×(3&thinsp;+&thinsp;2&thinsp;+&thinsp;3) +</nobr> <nobr>3×(3&thinsp;+&thinsp;2&thinsp;+&thinsp;3) +</nobr> <nobr>2×(3&thinsp;+&thinsp;3&thinsp;+&thinsp;3) +</nobr> <nobr>3×(3&thinsp;+&thinsp;3&thinsp;+&thinsp;2) –</nobr> <nobr>3)</nobr>, всего получится <strong>90 итераций</strong>.
+</p>
+<p>
+	Межкластерное сканирование заметно проигрывает, к тому же его нельзя использовать на 1‑й итерации (в этот момент существует только 1 кластер). Если же обратить внимание на 2‑ю итерацию из примера выше, то можно увидеть, что у последнего альтернативного варианта сканирования вероятность образования нового кластера равна 0.00. Полагаю, что ответ на вопрос: “Какой же тип сканирования был у этого альтернативного варианта?”, уже ясен.
+</p>
+<h4 id="prelesti-parallelnogo-skanirovaniya"><a href="#prelesti-parallelnogo-skanirovaniya" title="Ссылка на раздел"><font color="gray">#</font></a> Прелести параллельного сканирования</h4>
+<p>
+	Если, используя <strong>сканирование внутри кластера</strong>, получится параллельно запустить сканирование сразу во всех кластерах, то дополнительные 20 итераций <nobr>(3×2 +</nobr> <nobr>3×2 +</nobr> <nobr>2×1 +</nobr> <nobr>3×2)</nobr> сократятся до 6 итераций (3×2). При <strong>межкластерном сканировании</strong> тоже можно получить выигрыш от параллельного сканирования.
+</p>
+<p>
+	Вопрос состоит в том, не будет ли одно сканирование влиять на результаты другого сканирования, будучи запущенными параллельно.
+</p>
+<p>
+	<b>Note</b>: Реакция сети по завершении параллельного сканирования будет одна (единая для всех сканирований), а самих сканирований будет много – сможем ли мы для каждого сканирования однозначно узнать, как сеть отреагировала именно на это сканирование?
+</p>
+<img id="fig_LLTR_Advanced_star_parallel_0" alt="Диаграмма: LLTR Advanced звезда параллельное сканирование 0" align="center" height="285" src="https://hsto.org/webt/ci/bw/8-/cibw8-l6h6mgpvppidpaxe9dnqi.png#LLTR_Advanced_star_parallel_0.svg.png"/>
+<p>
+	На примере: слева – параллельное сканирование только<strong> внутри кластера</strong>; справа, начиная со 2‑й итерации - только <strong>межкластерное</strong> параллельное сканирование.
+</p>
+<p>
+	Со сканированием <strong>внутри кластера</strong> все в порядке – после 6‑и дополнительных итераций вся необходимая статистика будет собрана. А вот с межкластерным сканированием проблемы, какие бы мы комбинации unicast src и dst не перебирали, у нас так и останутся только 2 кластера. Одна из причин уже была найдена, когда мы рассматривали альтернативные варианты 2‑й итерации: “вероятность образования нового кластера равна 0.00”.
+</p>
+<p>
+	<strong>Межкластерное сканирование</strong> отправим “на полку пылится”, и посмотрим на еще один пример параллельного сканирования только <strong>внутри кластера</strong>. Возможно, в нем будет что‑то интересное…
+</p>
+<img id="fig_LLTR_Advanced_star_parallel_1" alt="Диаграмма: LLTR Advanced звезда параллельное сканирование 1" align="center" height="223" src="https://hsto.org/webt/ya/v3/pp/yav3pp37lxearuhyv0z18cc0p7q.png#LLTR_Advanced_star_parallel_1.svg.png"/>
+<p>
+	Наши опасения, по поводу влияния одного сканирования на результаты другого, подтвердились. Во 2‑й итерации правое сканирование (“<strong>unicast on broadcast sw</strong>”: unicast src расположен на том же свитче, что и broadcast src) повлияло на результаты левого сканирования (“unicast in sw”: unicast src и dst расположены на одном и том же свитче).
+</p>
+<p>
+	Сканирование “<strong>unicast on broadcast sw</strong>” вызвало падение скорости на свитче <strong><font color="#4CD46B">зеленого</font></strong> кластера, внутри него проходило свое сканирование “unicast in sw”, которое не должно было вызвать падение скорости на свитче. Это все привело к тому, что результаты сканирования “unicast in sw” говорят, что unicast src продолжает находиться в <strong><font color="#4CD46B">зеленом</font></strong> кластере (причем он там – единственный хост), а 2 остальных хоста <strong><font color="#4CD46B">зеленого</font></strong> кластера теперь переместились в <strong><font color="#9C8FD7">фиолетовый</font></strong> кластер.
+</p>
+<p>
+	И немного слов про кластер из одного хоста. Если вспомнить из чего должна состоять минимальная конфигурация сети, которую целесообразно сканировать (состоит из двух свитчей, к каждому из которых подключено два хоста), то в ней кластер из одного хоста возможен. Этот кластер “располагается” на свитче, к которому подключен broadcast src. То есть, собранная статистика говорит нам, что broadcast src находится не в <strong><font color="#FDD569">желтом</font></strong> кластере, а в <strong><font color="#4CD46B">зеленом</font></strong>! Этого попросту не может быть.
+</p>
+<p>
+	<b>Note</b>: Если считать, что в нормальной ситуации падение скорости на unicast src не может произойти, и не менять кластер, в котором он находится (даже если падение скорости произошло), то случится все вышеописанное.
+</p>
+<p>
+	<strong>Итог</strong>: параллельное сканирование в данном виде использовать нельзя.
+</p>
+<p>
+	Вспоминая картинку из IQ теста…
+</p>
+<details>
+	<summary>не имеет смысла</summary>
+	<p>
+		Показать бессмысленность обратного сканирования, если прямое сканирование привело к образованию кластера (это пригодится только при межкластерном сканировании…)
+	</p>
+</details>
+<h3 id="topologiya-posledovatelnoe-soedinenie-svitchey"><a href="#topologiya-posledovatelnoe-soedinenie-svitchey" title="Ссылка на раздел"><font color="gray">#</font></a> Топология: “последовательное соединение свитчей”</h3>
+<img id="fig_LLTR_Advanced_serial_0" alt="Диаграмма: LLTR Advanced последовательное соединение 0" align="center" height="381" src="https://hsto.org/webt/3f/lk/31/3flk31x3t32zjfnlfpwarpgdh8g.png#LLTR_Advanced_serial_0.svg.png"/>
+<p>
+	Правая часть картинки аналогична левой части.
+</p>
+<p>
+	В левой части показан путь unicast (синяя линия) и broadcast (черная линия) трафика, а также уменьшение скорости broadcast трафика (черная линия стала серой). На 5‑й итерации отчетливо видно, что одни линии трафика “соединяют” свитчи выше от их середины, а другие линии – ниже. Если линия нарисована выше середины, то трафик, по этим линиям, движется из правого свитча в левый (↼), иначе (линия ниже середины) – из левого свитча в правый (⇁), т.е. (⇋).
+</p>
+<p>
+	В правой части картинки отображено разбиение хостов на кластеры.
+</p>
+<p>
+	У нас есть 5 свитчей и <strong>15</strong> хостов. Если использовать LLTR Basic, то для 15 хостов, n=14 ⇒ нужно 182 итерации.
+</p>
+<p>
+	Первая и вторая итерация очень схожи. На 1‑й итерации отображено то, что произойдет, если unicast <strong>src</strong> расположен на том же свитче, что и broadcast src, а unicast <strong>dst</strong> располагается на любом свитче левее broadcast src свитча. Unicast трафик словно отбрасывает тень (<em>затеняет</em>) на весь broadcast трафик левее broadcast src свитча. Это очень хорошо видно в левой части картинки (черная линия стала серой). На 2‑й итерации отображено то же самое, для случая, когда unicast <strong>dst</strong> располагается правее broadcast src свитча.
+</p>
+<p>
+	Каждая итерация демонстрирует один из возможных вариантов сканирования. Посмотрим на оставшиеся итерации (варианты сканирования).
+</p>
+<p>
+	Итерация <strong>3</strong>. Направление broadcast и unicast трафика <strong>не совпадают</strong> – реакция сети <strong>отсутствует</strong>.
+</p>
+<p>
+	Итерация <strong>4</strong>. Направление broadcast и unicast трафика <strong>совпадают</strong> – сеть <strong>отреагировала</strong>.
+</p>
+<p>
+	Итерация <strong>5</strong>. Unicast src и dst находятся <strong>по разные стороны</strong> от broadcast src свитча – вся та <strong>сторона</strong>, где находится <strong>unicast dst</strong> будет <em>затенена</em> (<strong>упадет скорость</strong>). Стрелка, указывающая на 2‑ю итерацию, как бы намекает на то, что “имеет смысл сканировать только внутри кластера”.
+</p>
+<p>
+	Посмотрим, что может случиться, если сканировать только <strong>внутри кластера</strong> (2 немного разных примера):
+</p>
+<img id="fig_LLTR_Advanced_serial_1" alt="Диаграмма: LLTR Advanced последовательное соединение 1" align="center" height="286" src="https://hsto.org/webt/6w/b2/is/6wb2isfs-tuwfjgvlucksrx1p9o.png#LLTR_Advanced_serial_1.svg.png"/>
+<p>
+	Ничего плохого не случилось, все прошло хорошо. Советую обратить внимание на 4‑ю итерацию в примере слева (намек на то, где произошло падение скорости, и где образовался новый кластер), и на 1‑ю итерацию в примере справа.
+</p>
+<p>
+	В обоих примерах сбор всей статистики займет 30 итераций <nobr>((4) +</nobr> <nobr>(3×2 +</nobr> <nobr>3×2 +</nobr> <nobr>3×2 +</nobr> <nobr>2×1 +</nobr> <nobr>3×2))</nobr>, против 182 итераций при использовании LLTR Basic.
+</p>
+<p>
+	А что у нас с параллельным сканированием?
+</p>
+<img id="fig_LLTR_Advanced_serial_parallel_0" alt="Диаграмма: LLTR Advanced последовательное соединение параллельное сканирование 0" align="center" height="224" src="https://hsto.org/webt/cz/by/fk/czbyfkdaszzqkpf76za8nvhay8g.png#LLTR_Advanced_serial_parallel_0.svg.png"/>
+<p>
+	С левым примером все хорошо, а вот в правом примере что‑то пошло не так. В 3‑й итерации, unicast трафик внутри <strong><font color="#FDD569">желтого</font></strong> кластера двигался между двумя свитчами в направлении (↼), совпадающим с направлением broadcast трафика, что привело к <em>затенению</em> всех свитчей левее unicast src свитча <strong><font color="#FDD569">желтого</font></strong> кластера. Проблема в том, что левее unicast src свитча <strong><font color="#FDD569">желтого</font></strong> кластера проходило еще одно сканирование (в <strong><font color="#ED5547">красном</font></strong> кластере), которое было <em>затенено</em>, что и исказило его результаты. В итоге unicast src <strong><font color="#ED5547">красного</font></strong> кластера остался в <strong><font color="#ED5547">красном</font></strong> кластере, а все остальные хосты <strong><font color="#ED5547">красного</font></strong> кластера переместились в <strong><font color="#ED8F48">оранжевый</font></strong> кластер. В общем, повторилась та же самая проблема, что была и в случае с <a href="#fig_LLTR_Advanced_star_parallel_1">параллельным сканированием топологии “звезда из свитчей”</a>.
+</p>
+<p>
+	Кстати, про повторение истории, а можно ли в данной топологии провести полноценное сканирование, если к одному из свитчей подключен только один хост? В предыдущей топологии “звезда из свитчей” такое нельзя было сделать…
+</p>
+<p>
+	За основу возьмем удачный пример параллельного сканирования (пример слева), и попробуем изменить конфигурацию сети:
+</p>
+<img id="fig_LLTR_Advanced_serial_parallel_0_0" alt="Диаграмма: LLTR Advanced последовательное соединение параллельное сканирование 0 0" align="center" height="79" src="https://hsto.org/webt/mh/zy/r3/mhzyr37_5vq3rzgyavqfbitutmm.png#LLTR_Advanced_serial_parallel_0_0.svg.png"/>
+<p>
+	На картинке изображена конфигурация сети (2 конфигурации), и построенные кластеры (по окончанию последней итерации).
+</p>
+<p>
+	Как ни странно, в левой конфигурации сети все прошло хорошо – <strong><font color="#9C8FD7">фиолетовый</font></strong> кластер в точности описывает свой свитч, к которому подключен только 1 хост. А вот с правой конфигурацией сети проблема – ни одно из сканирований не смогло выделить крайний левый хост/свитч в отдельный <strong><font color="#ED8F48">оранжевый</font></strong> кластер.
+</p>
+<p>
+	Так почему же с правой конфигурацией, в которой есть свитч с 1 хостом, возникли проблемы (как и положено, в таком случае), а с левой конфигурацией, в которой также есть свитч с 1 хостом, вдруг все прошло хорошо? В чем отличия между этими конфигурациями?
+</p>
+<p>
+	Отличие простое: в правой конфигурации свитч подключен последним (находится с краю), а в левой конфигурации к свитчу подключается (левее) еще один свитч со своими хостами. Получается, что в конфигурации слева к свитчу подключен не один хост, а сразу 4 хоста (1 <strong>напрямую</strong> + 3 через другой свитч):
+</p>
+<img id="fig_LLTR_Advanced_serial_parallel_0_1" alt="Диаграмма: LLTR Advanced последовательное соединение параллельное сканирование 0 1" align="center" height="47" src="https://hsto.org/webt/rj/5h/qm/rj5hqm91_yafnjau4-d2ocg3co8.png#LLTR_Advanced_serial_parallel_0_1.svg.png"/>
+<p>
+	Вся иерархия целиком выглядит следующим образом:
+</p>
+<img id="fig_LLTR_Advanced_serial_parallel_0_2" alt="Диаграмма: LLTR Advanced последовательное соединение параллельное сканирование 0 2" align="center" height="109" src="https://hsto.org/webt/mf/xb/9b/mfxb9bmmbir0ykn9_ndw7phvjns.png#LLTR_Advanced_serial_parallel_0_2.svg.png"/>
+<p>
+	Поэтому ответ на немного измененный первоначальный вопрос: “Можно ли в данной топологии провести полноценное сканирование, если к одному из свитчей <strong>напрямую</strong> подключен только один хост?” – да, если свитч не крайний.
+</p>
+<a href="https://hsto.org/webt/cq/ak/fl/cqakflysscw80kp2ypfkfs5p4-u.png#sticker2_2x.png"><img id="fig_sticker2" alt="На обратной стороне стикера явно что-то есть" align="center" height="428" src="https://hsto.org/webt/-a/2v/rb/-a2vrbwsempbjeg8kzgtwzqbmrc.png#sticker2.png"/></a>
+<p align="center">
+	<em>Еще одна картинка. К чему бы она здесь…</em> ；）
+</p>
+
+<h2 id="tldr"><a href="#tldr" title="Ссылка на раздел"><font color="gray">#</font></a> TL;DR</h2><hr />
+<p>
+	Здесь я хотел написать кратко о вышеописанном, но не вышло…
+</p>
+<p>
+	Однако, я понял, что упустил несколько моментов:
+</p>
+<ul>
+	<li>если в одной сети запустить сразу 2 независимых сканирования/зондирования сети, то ничего хорошего из этого не выйдет – они будут искажать результаты друг друга;</li>
+	<li>во время сканирования/зондирования сети, нагрузка на нее значительно увеличится, поэтому не рекомендуется запускать ее часто (в часы‑пик тоже не стоит запускать).</li>
+</ul>
+<p>
+	И во избежание возникновения ассоциаций с одним из рассказов в картинках xkcd, и появления соответствующего комментария к данной блогозаписи, картинки из этого рассказа размещаются здесь（：
+</p>
+<a href="https://www.explainxkcd.com/wiki/index.php/378:_Real_Programmers"><img id="fig_Real_Programmers" alt="Butterfly-зонд" title="Настоящие программисты используют Rowhammer для записи в память, и Meltdown для чтения из нее" align="center" height="467" src="https://hsto.org/webt/l1/ov/mb/l1ovmbzmahaxxz8i23jo4takztm.png#Real_Programmers.png"/></a>
+
+<h2 id="to-be-continued"><a href="#to-be-continued" title="Ссылка на раздел"><font color="gray">#</font></a> В следующих частях / To be continued…</h2><hr />
+<ol>
+	<li><a href="https://habr.com/post/420327/" title="OMNeT++ учебник на русском">Первые шаги в <abbr title="Objective Modular Network Testbed in C++">OMNeT++</abbr> и INET</a> [<strong>tutorial</strong>]</li>
+	<li><a href="https://habr.com/post/421243/">Алгоритм определения топологии сети по собранной статистике</a></li>
+	<li><abbr title="Objective Modular Network Testbed in C++">OMNeT++</abbr> продолжение</li>
+	<li>Математика</li>
+	<li><abbr title="Objective Modular Network Testbed in C++">OMNeT++</abbr> продолжение 2</li>
+	<li>Реализация</li>
+	<li>Эксперимент <font color="gray">(название‑спойлер: “<a title="фильм" href="#hack-is here"><font color="gray">в конце Джон умрет</font></a>”)</font></li>
+</ol>
+<hr />
+<details>
+	<summary>Про опечатки и другие улучшения…</summary>
+	<p>
+		Если в тексте нашлись ошибки, то можете написать о них в <a href="https://habr.com/info/help/habramail/#howto" title="Как отправить личное сообщение">ПМ/ЛС</a>.
+	</p>
+	<p>
+		Если можете помочь с уменьшением количества текста до ката, сохранив при этом всю вложенную в текст информацию и удобство чтения, то варианты принимаю в тот же <a href="https://habr.com/info/help/habramail/#howto" title="Как отправить личное сообщение">ПМ/ЛС</a>.
+	</p>
+	<p>
+		Если вы считаете что в тексте лучше использовать синоним одного из слов, то тоже можно писать в <a href="https://habr.com/info/help/habramail/#howto" title="Как отправить личное сообщение">ПМ/ЛС</a>.
+	</p>
+	<p>
+		P.S. Раздел про пневмотранспорт вставлен не случайно:
+	</p>
+	<p>
+		<!-- Этой картинки нету специально -->(из “Стражей Галактики” вставить сцены с “Ракетой” (~енотом~), когда он просит принести ногу‑протез для плана побега (и ему приносят ногу), и когда он просит дать глаз для плана атаки в конце фильма (он говорит: “очень важная часть плана”))
+	</p>
+</details>
+<a name="ps-section"></a>
+<p>
+	<b>P.S.</b> на картинках метки <img alt="un 7-Zip me" width="52" height="16" src="https://hsto.org/webt/jb/dr/dp/jbdrdpf0zozugszofy1owgrpweu.png#un7zipMe.png"/> стоят неспроста <font color="gray">（； <em>обрати внимание на хеш в <abbr title="Uniform Resource Identifier">URI</abbr> картинок )</em></font>
+</p>
+<p>
+	<b>P.P.S.</b> в изображениях могут быть спрятаны пасхалки, придающие им глубокий смысл ；）
+</p>
+<!--<p>
+	<b>P.P.P.S.</b> В свете <a href="https://geektimes.ru/post/280574/#comment_9581136">этого</a> скрыл ссылки на внешний ресурс, где я раньше постил статьи под спойлеры, во всех местах кроме одного – там где указывается на конкретный раздел статьи. Если такие ссылки (на статьи) разрешены, то напишите в <a href="https://habr.com/info/help/habramail/#howto" title="Как отправить личное сообщение">ПМ/ЛС</a>, уберу из под спойлера – станет удобнее читателям ：）
+</p>-->
+<p>
+	<b>P.P.P.P.S.</b> Ответы на <strong>комментарии</strong> смогу написать только в небольшой промежуток времени, вечером по Всемирному координированному времени.
+</p>
+<p>
+	<a href="https://habr.com/post/414799/#comments" title="Вернуться на Хабр">Комментарии на Хабре →</a>
+</p>
+</body>
+</html>
